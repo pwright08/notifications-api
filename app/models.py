@@ -231,6 +231,80 @@ class Service(db.Model, Versioned):
         return cls(**fields)
 
 
+    def update_from_json(self, data):
+        """
+        Assumption: data has been validated appropriately.
+        Returns a Service object based on the provided data. Deserialises created_by to created_by_id as marshmallow
+        would.
+        """
+        fields = data.copy()
+
+        # print("json:{}".format(data))
+
+        def deprecate_convert_flags_to_permissions():
+            str_permissions = [p.permission for p in self.permissions]
+
+            def convert_flag(flag, notify_type):
+                if flag and notify_type not in str_permissions:
+                    permission = ServicePermission(service_id=self.id, permission=notify_type)
+                    fields['permissions'].append(permission)
+                elif flag is False and notify_type in str_permissions:
+                    for p in fields['permissions']:
+                        if p.permission == notify_type:
+                            fields['permissions'].remove(p)
+
+            convert_flag(fields.get("can_send_international_sms"), INTERNATIONAL_SMS_TYPE)
+            convert_flag(fields.get("can_send_letters"), LETTER_TYPE)
+
+        deprecate_convert_flags_to_permissions()
+
+        if self.permissions or fields.get('permissions'):
+            permissions = fields.pop('permissions')
+            fields['permissions'] = []
+            for sp in permissions:
+                if sp.permission not in [p.permission for p in self.permissions]:
+                    print('append')
+                    fields['permissions'].append(ServicePermission(service_id=self.id, permission=sp.permission))
+                elif sp.permission not in fields['permissions']:
+                    permission = [p for p in self.permissions if p.permission == sp.permission][0]
+                    print(permission)
+                    if permission in self.permissions:
+                        print("found")
+                    fields['permissions'].append(permission)
+                    # fields['permissions'].append(self.permissions[0])
+
+        print("field:{}".format(fields["permissions"]))
+        print("self:{}".format(self.permissions))
+
+        fields['created_by_id'] = fields.pop('created_by')
+        fields['dvla_organisation_id'] = fields.get('dvla_organisation')
+
+        if self.dvla_organisation:
+            if self.dvla_organisation.id != fields['dvla_organisation_id']:
+                fields['dvla_organisation'] = DVLAOrganisation.query.filter_by(id=fields['dvla_organisation_id'])
+            else:
+                fields['dvla_organisation'] = self.dvla_organisation
+
+        if self.users:
+            users = fields.pop('users')
+            fields['users'] = []
+            for uuid in users:
+                if uuid not in [u.id for u in self.users]:
+                    fields['users'].append(User(id=uuid))
+                else:
+                    fields['users'].append([u for u in self.users if u.id == uuid][0])
+
+        for field, value in fields.items():
+            # if field != 'permissions':
+            setattr(self, field, value)
+
+    @classmethod
+    def from_json(cls, data):
+        new_obj = cls()
+        new_obj.update_from_json(data)
+        return new_obj
+
+
 class ServicePermission(db.Model):
     __tablename__ = "service_permissions"
 

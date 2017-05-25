@@ -10,7 +10,7 @@ from freezegun import freeze_time
 
 from app.dao.users_dao import save_model_user
 from app.dao.services_dao import dao_remove_user_from_service
-from app.models import User, Organisation, DVLA_ORG_LAND_REGISTRY, Rate, ServicePermission
+from app.models import Service, User, Organisation, DVLA_ORG_LAND_REGISTRY, Rate, ServicePermission
 from tests import create_authorization_header
 from tests.app.db import create_template
 from tests.app.conftest import (
@@ -491,7 +491,6 @@ def test_update_service_flags_with_service_without_default_service_permissions(c
         headers=[('Content-Type', 'application/json'), auth_header]
     )
     result = json.loads(resp.get_data(as_text=True))
-
     assert resp.status_code == 200
     assert result['data']['can_send_letters'] is True
     assert result['data']['can_send_international_sms'] is True

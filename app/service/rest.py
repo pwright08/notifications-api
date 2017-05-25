@@ -9,6 +9,7 @@ from flask import (
     Blueprint
 )
 from sqlalchemy.orm.exc import NoResultFound
+from app.dao import notification_usage_dao, notifications_dao
 
 from app.dao import notification_usage_dao, notifications_dao
 from app.dao.dao_utils import dao_rollback
@@ -124,17 +125,39 @@ def create_service():
 @service_blueprint.route('/<uuid:service_id>', methods=['POST'])
 def update_service(service_id):
     fetched_service = dao_fetch_service_by_id(service_id)
+    print(fetched_service.__dict__.get('permissions'))
     # Capture the status change here as Marshmallow changes this later
     service_going_live = fetched_service.restricted and not request.get_json().get('restricted', True)
 
     current_data = dict(service_schema.dump(fetched_service).data.items())
-    service_schema.set_override_flag(request.get_json().get('permissions') is not None)
+    # service_schema.set_override_flag(request.get_json().get('permissions') is not None)
     current_data.update(request.get_json())
+
+    print(current_data)
+
+    # validate json with marshmallow
+    service_schema.load(current_data)
+
+    # unpack valid json into service object
+    # print('current_data:{}'.format(current_data))
+
+    fetched_service.update_from_json(current_data)
+    # print(type(fetched_service))
+    print(fetched_service.__dict__)
+
+    # try:
+    #     update_dict = service_schema.load(current_data).data
+    # except ValueError as e:
+    #     raise InvalidRequest(str(e), status_code=400)
+
     try:
-        update_dict = service_schema.load(current_data).data
-    except ValueError as e:
-        raise InvalidRequest(str(e), status_code=400)
-    dao_update_service(update_dict)
+        dao_update_service(fetched_service)
+        # from app.dao.services_dao import dao_update_service_by_dict
+        # dao_update_service_by_dict(current_data)
+    except Exception as e:
+        print(e)
+        raise
+
 
     if service_going_live:
         send_notification_to_service_users(
