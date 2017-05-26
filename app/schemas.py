@@ -275,6 +275,10 @@ class ServiceSchema(BaseSchema):
         # print(in_data)
         return in_data
 
+    @pre_dump
+    def test(self):
+        print('pre_dump')
+
     def set_override_flag(self, flag):
         self.override_flag = flag
 
