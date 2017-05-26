@@ -125,7 +125,6 @@ def create_service():
 @service_blueprint.route('/<uuid:service_id>', methods=['POST'])
 def update_service(service_id):
     fetched_service = dao_fetch_service_by_id(service_id)
-    print(fetched_service.__dict__.get('permissions'))
     # Capture the status change here as Marshmallow changes this later
     service_going_live = fetched_service.restricted and not request.get_json().get('restricted', True)
 
@@ -133,7 +132,7 @@ def update_service(service_id):
     # service_schema.set_override_flag(request.get_json().get('permissions') is not None)
     current_data.update(request.get_json())
 
-    print(current_data)
+    # print(current_data)
 
     # validate json with marshmallow
     service_schema.load(current_data)
@@ -143,7 +142,7 @@ def update_service(service_id):
 
     fetched_service.update_from_json(current_data)
     # print(type(fetched_service))
-    print(fetched_service.__dict__)
+    # print(fetched_service.__dict__)
 
     # try:
     #     update_dict = service_schema.load(current_data).data
@@ -169,6 +168,8 @@ def update_service(service_id):
             },
             include_user_fields=['name']
         )
+
+    print(json.dumps(fetched_service.permissions, default=to_serialize))
 
     return jsonify(data=service_schema.dump(fetched_service).data), 200
 

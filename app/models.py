@@ -263,18 +263,18 @@ class Service(db.Model, Versioned):
             fields['permissions'] = []
             for sp in permissions:
                 if sp.permission not in [p.permission for p in self.permissions]:
-                    print('append')
+                    # print('append')
                     fields['permissions'].append(ServicePermission(service_id=self.id, permission=sp.permission))
                 elif sp.permission not in fields['permissions']:
                     permission = [p for p in self.permissions if p.permission == sp.permission][0]
-                    print(permission)
-                    if permission in self.permissions:
-                        print("found")
+                    # print(permission)
+                    # if permission in self.permissions:
+                        # print("found")
                     fields['permissions'].append(permission)
                     # fields['permissions'].append(self.permissions[0])
 
-        print("field:{}".format(fields["permissions"]))
-        print("self:{}".format(self.permissions))
+        # print("field:{}".format(fields["permissions"]))
+        # print("self:{}".format(self.permissions))
 
         fields['created_by_id'] = fields.pop('created_by')
         fields['dvla_organisation_id'] = fields.get('dvla_organisation')
@@ -304,8 +304,9 @@ class Service(db.Model, Versioned):
         new_obj.update_from_json(data)
         return new_obj
 
-
-class ServicePermission(db.Model):
+from functools import singledispatch
+from json import JSONEncoder
+class ServicePermission(db.Model, JSONEncoder):
     __tablename__ = "service_permissions"
 
     service_id = db.Column(UUID(as_uuid=True), db.ForeignKey('services.id'),
@@ -320,6 +321,21 @@ class ServicePermission(db.Model):
 
     def __repr__(self):
         return '<{} has service permission: {}>'.format(self.service_id, self.permission)
+
+    @singledispatch
+    def to_serialize(self, val):
+        print('to_serialize')
+
+    def default(self, o):
+        print('serialize')
+        try:
+            iterable = iter(o)
+        except TypeError:
+            pass
+        else:
+            return list(iterable)
+        # Let the base class default method raise the TypeError
+        return JSONEncoder.default(self, o)
 
 
 MOBILE_TYPE = 'mobile'

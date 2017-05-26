@@ -275,9 +275,21 @@ class ServiceSchema(BaseSchema):
         # print(in_data)
         return in_data
 
-    @pre_dump
-    def test(self):
-        print('pre_dump')
+    @pre_dump(pass_many=False)
+    def test(self, service):
+        permissions = service.permissions.copy()
+        serlialized_permissions = []
+        for p in permissions:
+            permission = {
+                "service_id": p.service_id,
+                "permission": p.permission
+            }
+            serlialized_permissions.append(permission)
+
+        # service.permissions = serlialized_permissions
+        # print('pre_dump:{}'.format(service.permissions))
+
+        return service
 
     def set_override_flag(self, flag):
         self.override_flag = flag
