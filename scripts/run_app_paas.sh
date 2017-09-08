@@ -26,7 +26,7 @@ function configure_aws_logs {
 state_file = /home/vcap/logs/awslogs-state
 
 [/home/vcap/logs/app.log]
-file = /home/vcap/logs/app.log*.json
+file = /home/vcap/logs/combined_log.json
 log_group_name = paas-${CW_APP_NAME}-application
 log_stream_name = {hostname}
 EOF
@@ -58,6 +58,11 @@ function start_application {
   echo "Application process pid: ${APP_PID}"
 }
 
+function start_combining_logs {
+  tail -fq /home/vcap/logs/app.log*.json >> /home/vcap/logs/combined_log.json
+  TAIL_PID=$!
+}
+
 function start_aws_logs_agent {
   exec aws logs push --region eu-west-1 --config-file /home/vcap/app/awslogs.conf &
   AWSLOGS_AGENT_PID=$!
@@ -68,6 +73,7 @@ function run {
   while true; do
     kill -0 ${APP_PID} 2&>/dev/null || break
     kill -0 ${AWSLOGS_AGENT_PID} 2&>/dev/null || start_aws_logs_agent
+    kill -0 ${TAIL_PID} 2&>/dev/null || start_combining_logs
     sleep 1
   done
 }
@@ -82,6 +88,8 @@ configure_aws_logs
 
 # The application has to start first!
 start_application "$@"
+
+start_combining_logs
 
 start_aws_logs_agent
 
