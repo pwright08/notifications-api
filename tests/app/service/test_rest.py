@@ -1232,6 +1232,8 @@ def test_set_reply_to_email_for_service(notify_api, sample_service):
                 data=json.dumps(data),
                 headers=[('Content-Type', 'application/json'), auth_header]
             )
+            import pdb
+            pdb.set_trace()
             result = json.loads(resp.get_data(as_text=True))
             assert resp.status_code == 200
             assert result['data']['reply_to_email_address'] == 'reply_test@service.gov.uk'

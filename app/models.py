@@ -199,7 +199,7 @@ class Service(db.Model, Versioned):
     email_from = db.Column(db.Text, index=False, unique=True, nullable=False)
     created_by = db.relationship('User')
     created_by_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), index=True, nullable=False)
-    reply_to_email_address = db.Column(db.Text, index=False, unique=False, nullable=True)
+    _reply_to_email_address = db.Column('reply_to_email_address', db.Text, index=False, unique=False, nullable=True)
     letter_contact_block = db.Column(db.Text, index=False, unique=False, nullable=True)
     sms_sender = db.Column(db.String(11), nullable=False, default=lambda: current_app.config['FROM_NUMBER'])
     organisation_id = db.Column(UUID(as_uuid=True), db.ForeignKey('organisation.id'), index=True, nullable=True)
@@ -246,6 +246,17 @@ class Service(db.Model, Versioned):
             return self.inbound_number.number
         else:
             return self.sms_sender
+
+    @property
+    def reply_to_email_address(self):
+        from app.dao.service_email_reply_to_dao import dao_get_reply_to_by_service_id
+        return dao_get_reply_to_by_service_id(self.id).email_address
+
+    @reply_to_email_address.setter
+    def reply_to_email_address(self, reply_to_email_address):
+        self._reply_to_email_address = reply_to_email_address
+        from app.dao.service_email_reply_to_dao import create_or_update_email_reply_to
+        create_or_update_email_reply_to(self.id, reply_to_email_address)
 
 
 class InboundNumber(db.Model):

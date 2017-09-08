@@ -136,6 +136,8 @@ def update_service(service_id):
     fetched_service = dao_fetch_service_by_id(service_id)
     # Capture the status change here as Marshmallow changes this later
     service_going_live = fetched_service.restricted and not req_json.get('restricted', True)
+    import pdb
+    pdb.set_trace()
 
     if 'reply_to_email_address' in req_json:
         create_or_update_email_reply_to(fetched_service.id, req_json['reply_to_email_address'])
