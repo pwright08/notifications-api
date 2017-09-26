@@ -1414,3 +1414,24 @@ class ServiceLetterContact(db.Model):
             'created_at': self.created_at.strftime(DATETIME_FORMAT),
             'updated_at': self.updated_at.strftime(DATETIME_FORMAT) if self.updated_at else None
         }
+
+
+class NotificationSmsSender(db.Model):
+    __tablename__ = "notification_to_sms_sender"
+
+    notification_id = db.Column(
+        UUID(as_uuid=True),
+        db.ForeignKey('notifications.id'),
+        unique=False,
+        index=True,
+        nullable=False,
+        primary_key=True
+    )
+    service_sms_sender_id = db.Column(
+        UUID(as_uuid=True),
+        db.ForeignKey('service_sms_senders.id'),
+        unique=False,
+        index=True,
+        nullable=False,
+        primary_key=True
+    )
