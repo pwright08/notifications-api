@@ -42,7 +42,8 @@ from app.dao.notifications_dao import (
     is_delivery_slow_for_provider,
     dao_update_notifications_sent_to_dvla,
     dao_get_notifications_by_to_field,
-    dao_created_scheduled_notification, dao_get_scheduled_notifications, set_scheduled_notification_to_processed)
+    dao_created_scheduled_notification, dao_get_scheduled_notifications, set_scheduled_notification_to_processed,
+    dao_get_notification_email_reply_to_mapping)
 
 from app.dao.services_dao import dao_update_service
 from tests.app.db import create_notification, create_api_key
@@ -1943,3 +1944,14 @@ def test_dao_get_notifications_by_to_field_orders_by_created_at_desc(sample_temp
     assert len(notifications) == 2
     assert notifications[0].id == notification.id
     assert notifications[1].id == notification_a_minute_ago.id
+
+
+def test_dao_create_notification_email_reply_to_mapping():
+    data = _notification_json(sample_template)
+    notification = Notification(**data)
+
+    dao_create_notification(notification)
+
+    email_reply_to= dao_get_notification_email_reply_to_mapping(notification)
+
+    assert len(email_reply_to) == 1

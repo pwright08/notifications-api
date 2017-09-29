@@ -26,8 +26,10 @@ from app.dao.date_util import get_financial_year
 from app.models import (
     Service,
     Notification,
+    NotificationEmailReplyTo,
     NotificationHistory,
     NotificationStatistics,
+    ServiceEmailReplyTo,
     Template,
     ScheduledNotification,
     NOTIFICATION_CREATED,
@@ -555,3 +557,23 @@ def dao_get_total_notifications_sent_per_day_for_performance_platform(start_date
         NotificationHistory.key_type != KEY_TYPE_TEST,
         NotificationHistory.notification_type != LETTER_TYPE
     ).one()
+
+
+def dao_create_notification_email_reply_to_mapping(notification_id, email_reply_to_id):
+    notification_email_reply_to = NotificationEmailReplyTo(
+        notification_id=notification_id,
+        service_email_reply_to_id=email_reply_to_id
+    )
+    db.session.add(notification_email_reply_to)
+
+
+def dao_get_notification_email_reply_to_mapping(notification):
+    email_reply_to = db.session.query(
+        ServiceEmailReplyTo
+    ).join(
+        NotificationEmailReplyTo
+    ).order_by(
+        asc(Service.created_at)
+    )
+
+    return email_reply_to
