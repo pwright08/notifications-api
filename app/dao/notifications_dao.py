@@ -13,8 +13,9 @@ from notifications_utils.recipients import (
     InvalidPhoneError,
     InvalidEmailError,
 )
+
 from werkzeug.datastructures import MultiDict
-from sqlalchemy import (desc, func, or_, and_, asc)
+from sqlalchemy import (desc, func, or_, and_, asc, exc)
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.expression import case
 from sqlalchemy.sql import functions
@@ -560,20 +561,22 @@ def dao_get_total_notifications_sent_per_day_for_performance_platform(start_date
 
 
 def dao_create_notification_email_reply_to_mapping(notification_id, email_reply_to_id):
-    notification_email_reply_to = NotificationEmailReplyTo(
-        notification_id=notification_id,
-        service_email_reply_to_id=email_reply_to_id
-    )
-    db.session.add(notification_email_reply_to)
+    email_reply_to = NotificationEmailReplyTo.query.filter_by(notification_id=notification_id).all()
+
+    if len(email_reply_to) == 0:
+        notification_email_reply_to = NotificationEmailReplyTo(
+            notification_id=notification_id,
+            service_email_reply_to_id=email_reply_to_id
+        )
+        db.session.add(notification_email_reply_to)
 
 
-def dao_get_notification_email_reply_to_mapping(notification):
-    email_reply_to = db.session.query(
-        ServiceEmailReplyTo
-    ).join(
+def dao_get_notification_email_reply_for_notification(notification_id):
+    email_reply_to = ServiceEmailReplyTo.query.join(
         NotificationEmailReplyTo
-    ).order_by(
-        asc(Service.created_at)
-    )
+    ).filter(
+        NotificationEmailReplyTo.notification_id == notification_id
+    ).all()
 
-    return email_reply_to
+    if len(email_reply_to) == 1:
+        return email_reply_to[0].email_address
