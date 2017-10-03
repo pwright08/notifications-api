@@ -1970,7 +1970,11 @@ def test_dao_create_multiple_notification_email_reply_to_mapping(sample_service,
     reply_to_address = dao_get_reply_to_by_service_id(sample_service.id)
 
     dao_create_notification_email_reply_to_mapping(sample_notification.id, reply_to_address[0].id)
-    dao_create_notification_email_reply_to_mapping(sample_notification.id, reply_to_address[0].id)
+
+    with pytest.raises(IntegrityError) as e:
+        dao_create_notification_email_reply_to_mapping(sample_notification.id, reply_to_address[0].id)
+
+    assert 'duplicate key value' in str(e.value)
 
     email_reply_to = NotificationEmailReplyTo.query.all()
 
