@@ -11,7 +11,7 @@ from app.notifications.process_notifications import (
     persist_notification,
     send_notification_to_queue,
     simulated_recipient,
-    persist_scheduled_notification)
+    persist_scheduled_notification, persist_email_reply_to_id_for_notification)
 from app.notifications.process_letter_notifications import (
     create_letter_api_job,
     create_letter_notification
@@ -54,13 +54,13 @@ def post_notification(notification_type):
     check_service_has_permission(notification_type, authenticated_service.permissions)
 
     scheduled_for = form.get("scheduled_for", None)
-    service_email_reply_to_id = form.get("email_reply_to_id", None)
+    email_reply_to_id = form.get("email_reply_to_id", None)
 
     check_service_can_schedule_notification(authenticated_service.permissions, scheduled_for)
 
     check_rate_limiting(authenticated_service, api_user)
 
-    check_service_email_reply_to_id(str(authenticated_service.id), service_email_reply_to_id)
+    check_service_email_reply_to_id(str(authenticated_service.id), email_reply_to_id)
 
     template, template_with_content = validate_template(
         form['template_id'],
@@ -133,6 +133,10 @@ def process_sms_or_email_notification(*, form, notification_type, api_key, templ
         client_reference=form.get('reference', None),
         simulated=simulated
     )
+
+    email_reply_to_id = form.get("email_reply_to_id", None)
+    if email_reply_to_id is not None:
+        persist_email_reply_to_id_for_notification(notification.id, email_reply_to_id)
 
     scheduled_for = form.get("scheduled_for", None)
     if scheduled_for:

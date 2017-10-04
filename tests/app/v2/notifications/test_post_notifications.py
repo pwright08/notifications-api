@@ -5,8 +5,8 @@ from freezegun import freeze_time
 
 from app.models import (
     Notification, ScheduledNotification, SCHEDULE_NOTIFICATIONS,
-    EMAIL_TYPE, INTERNATIONAL_SMS_TYPE, SMS_TYPE
-)
+    EMAIL_TYPE, INTERNATIONAL_SMS_TYPE, SMS_TYPE,
+    NotificationEmailReplyTo)
 from flask import json, current_app
 
 from app.models import Notification
@@ -524,3 +524,9 @@ def test_post_email_notification_with_valid_reply_to_id_returns_201(client, samp
     notification = Notification.query.first()
     assert resp_json['id'] == str(notification.id)
     assert mocked.called
+
+    email_reply_to = NotificationEmailReplyTo.query.all()
+
+    assert len(email_reply_to) == 1
+    assert email_reply_to[0].notification_id == notification.id
+    assert email_reply_to[0].service_email_reply_to_id == reply_to_email.id
