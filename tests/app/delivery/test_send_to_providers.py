@@ -6,6 +6,7 @@ from unittest.mock import ANY, call
 import pytest
 from notifications_utils.recipients import validate_and_format_phone_number
 from flask import current_app
+from requests_mock import mock
 
 import app
 from app import mmg_client, firetext_client
@@ -24,7 +25,7 @@ from app.models import (
     BRANDING_ORG_BANNER)
 
 from tests.app.db import create_service, create_template, create_notification, create_inbound_number, \
-    create_reply_to_email
+    create_reply_to_email, create_reply_to_email_for_notification
 
 
 def test_should_return_highest_priority_active_provider(restore_provider_details):
@@ -698,3 +699,27 @@ def test_should_use_inbound_number_as_sender_if_set(
         reference=str(notification.id),
         sender=inbound_number.number
     )
+
+
+def test_send_email_to_provider_get_linked_email_reply_to(
+    sample_service,
+    sample_email_template,
+    mocker
+):
+    notification = create_notification(template=sample_email_template, status='created')
+    send_email_mock = mocker.patch('app.aws_ses_client.send_email')
+    mocker.patch('app.delivery.send_to_providers.send_email_response')
+    mocker.patch('app.delivery.send_to_providers.create_initial_notification_statistic_tasks')
+
+    reply_to = create_reply_to_email_for_notification(notification.id, sample_service, "test@test.com")
+
+    send_to_providers.send_email_to_provider(
+        notification
+    )
+
+    send_email_mock.assert_called_with(mock.ANY,
+                                       mock.ANY,
+                                       mock.ANY,
+                                       mock.ANY,
+                                       mock.ANY,
+                                       reply_to.email_address)

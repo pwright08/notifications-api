@@ -578,3 +578,5 @@ def dao_get_notification_email_reply_for_notification(notification_id):
 
     if len(email_reply_to) == 1:
         return email_reply_to[0].email_address
+    elif len(email_reply_to) > 1:
+        raise Exception("Cannot have multiple email reply to addresses")
