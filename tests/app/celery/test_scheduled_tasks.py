@@ -834,3 +834,21 @@ def test_check_job_status_task_raises_job_incomplete_error_for_multiple_jobs(moc
         args=([str(job.id), str(job_2.id)],),
         queue=QueueNames.JOBS
     )
+
+
+def test_check_job_status_task_does_not_raise_an_alert_for_letters(mocker, sample_letter_template):
+        mock_celery = mocker.patch('app.celery.tasks.notify_celery.send_task')
+        create_job(template=sample_letter_template, notification_count=3,
+                   created_at=datetime.utcnow() - timedelta(hours=2),
+                   scheduled_for=datetime.utcnow() - timedelta(minutes=31),
+                   processing_started=datetime.utcnow() - timedelta(minutes=31),
+                   job_status=JOB_STATUS_IN_PROGRESS)
+        create_job(template=sample_letter_template, notification_count=3,
+                   created_at=datetime.utcnow() - timedelta(hours=2),
+                   scheduled_for=datetime.utcnow() - timedelta(minutes=31),
+                   processing_started=datetime.utcnow() - timedelta(minutes=31),
+                   job_status=JOB_STATUS_IN_PROGRESS)
+
+        check_job_status()
+
+        mock_celery.assert_not_called()

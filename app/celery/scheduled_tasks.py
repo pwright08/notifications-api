@@ -10,7 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from notifications_utils.s3 import s3upload
 
 from app.aws import s3
-from app import notify_celery
+from app import notify_celery, db
 from app.performance_platform import total_sent_notifications, processing_time
 from app import performance_platform_client
 from app.dao.date_util import get_month_start_and_end_date_in_utc
@@ -41,6 +41,7 @@ from app.dao.provider_details_dao import (
 from app.dao.users_dao import delete_codes_older_created_more_than_a_day_ago
 from app.models import (
     Job,
+    Template,
     LETTER_TYPE,
     JOB_STATUS_IN_PROGRESS,
     JOB_STATUS_READY_TO_SEND
@@ -389,12 +390,13 @@ def check_job_status():
     thirty_minutes_ago = datetime.utcnow() - timedelta(minutes=30)
     thirty_five_minutes_ago = datetime.utcnow() - timedelta(minutes=35)
 
-    jobs_not_complete_after_30_minutes = Job.query.filter(
+    jobs_not_complete_after_30_minutes = db.session.query(Job, Template).filter(
         Job.job_status == JOB_STATUS_IN_PROGRESS,
-        and_(thirty_five_minutes_ago < Job.processing_started, Job.processing_started < thirty_minutes_ago)
+        and_(thirty_five_minutes_ago < Job.processing_started, Job.processing_started < thirty_minutes_ago),
+        and_(Template.template_type.in_(['sms', 'email']))
     ).order_by(Job.processing_started).all()
 
-    job_ids = [str(x.id) for x in jobs_not_complete_after_30_minutes]
+    job_ids = [str(x.Job.id) for x in jobs_not_complete_after_30_minutes]
     if job_ids:
         notify_celery.send_task(
             name=TaskNames.PROCESS_INCOMPLETE_JOBS,
