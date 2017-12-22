@@ -8,7 +8,7 @@ APP_VERSION_FILE = app/version.py
 GIT_BRANCH ?= $(shell git symbolic-ref --short HEAD 2> /dev/null || echo "detached")
 GIT_COMMIT ?= $(shell git rev-parse HEAD)
 
-DOCKER_IMAGE_TAG := $(shell cat docker/VERSION)
+DOCKER_IMAGE_TAG := ${GIT_COMMIT}
 DOCKER_BUILDER_IMAGE_NAME = govuk/notify-api-builder:${DOCKER_IMAGE_TAG}
 DOCKER_TTY ?= $(if ${JENKINS_HOME},,t)
 
@@ -35,8 +35,7 @@ help:
 venv: venv/bin/activate ## Create virtualenv if it does not exist
 
 venv/bin/activate:
-	test -d venv || virtualenv venv -p python3
-	. venv/bin/activate && pip install pip-accel
+	test -d venv || python3 -m venv venv
 
 .PHONY: check-env-vars
 check-env-vars: ## Check mandatory environment variables
@@ -71,8 +70,7 @@ production: ## Set environment to production
 
 .PHONY: dependencies
 dependencies: venv ## Install build dependencies
-	mkdir -p ${PIP_ACCEL_CACHE}
-	. venv/bin/activate && PIP_ACCEL_CACHE=${PIP_ACCEL_CACHE} pip-accel install -r requirements_for_test.txt
+	. venv/bin/activate && pip install -r requirements_for_test.txt
 
 .PHONY: generate-version-file
 generate-version-file: ## Generates the app version file
@@ -80,10 +78,7 @@ generate-version-file: ## Generates the app version file
 
 .PHONY: build
 build: dependencies generate-version-file ## Build project
-	. venv/bin/activate && PIP_ACCEL_CACHE=${PIP_ACCEL_CACHE} pip-accel install -r requirements.txt
-
-.PHONY: cf-build
-cf-build: dependencies generate-version-file ## Build project for PAAS
+	. venv/bin/activate && pip install -r requirements.txt
 
 .PHONY: build-codedeploy-artifact
 build-codedeploy-artifact: ## Build the deploy artifact for CodeDeploy
@@ -157,57 +152,20 @@ deploy-check-autoscaling-processes: check-aws-vars ## Returns with the number of
 coverage: venv ## Create coverage report
 	. venv/bin/activate && coveralls
 
-.PHONY: prepare-docker-build-image
-prepare-docker-build-image: ## Prepare the Docker builder image
-	mkdir -p ${PIP_ACCEL_CACHE}
-	make -C docker build
-
 .PHONY: build-with-docker
-build-with-docker: prepare-docker-build-image ## Build inside a Docker container
-	@docker run -i${DOCKER_TTY} --rm \
-		--name "${DOCKER_CONTAINER_PREFIX}-build" \
-		-v "`pwd`:/var/project" \
-		-v "${PIP_ACCEL_CACHE}:/var/project/cache/pip-accel" \
-		-e UID=$(shell id -u) \
-		-e GID=$(shell id -g) \
-		-e GIT_COMMIT=${GIT_COMMIT} \
-		-e BUILD_NUMBER=${BUILD_NUMBER} \
-		-e BUILD_URL=${BUILD_URL} \
-		-e http_proxy="${HTTP_PROXY}" \
-		-e HTTP_PROXY="${HTTP_PROXY}" \
-		-e https_proxy="${HTTPS_PROXY}" \
-		-e HTTPS_PROXY="${HTTPS_PROXY}" \
-		-e NO_PROXY="${NO_PROXY}" \
-		${DOCKER_BUILDER_IMAGE_NAME} \
-		gosu hostuser make build
-
-.PHONY: cf-build-with-docker
-cf-build-with-docker: prepare-docker-build-image ## Build inside a Docker container
-	@docker run -i${DOCKER_TTY} --rm \
-		--name "${DOCKER_CONTAINER_PREFIX}-build" \
-		-v "`pwd`:/var/project" \
-		-v "${PIP_ACCEL_CACHE}:/var/project/cache/pip-accel" \
-		-e UID=$(shell id -u) \
-		-e GID=$(shell id -g) \
-		-e GIT_COMMIT=${GIT_COMMIT} \
-		-e BUILD_NUMBER=${BUILD_NUMBER} \
-		-e BUILD_URL=${BUILD_URL} \
-		-e http_proxy="${HTTP_PROXY}" \
-		-e HTTP_PROXY="${HTTP_PROXY}" \
-		-e https_proxy="${HTTPS_PROXY}" \
-		-e HTTPS_PROXY="${HTTPS_PROXY}" \
-		-e NO_PROXY="${NO_PROXY}" \
-		${DOCKER_BUILDER_IMAGE_NAME} \
-		gosu hostuser make cf-build
+build-with-docker: ## Prepare the Docker builder image
+	docker build -f docker/Dockerfile \
+		--build-arg HTTP_PROXY="${HTTP_PROXY}" \
+		--build-arg HTTPS_PROXY="${HTTP_PROXY}" \
+		--build-arg NO_PROXY="${NO_PROXY}" \
+		-t govuk/notify-api-builder:${DOCKER_IMAGE_TAG} \
+		.
 
 .PHONY: test-with-docker
-test-with-docker: prepare-docker-build-image create-docker-test-db ## Run tests inside a Docker container
-	@docker run -i${DOCKER_TTY} --rm \
+test-with-docker: build-with-docker
+	@DOCKER_BUILDER_IMAGE_NAME=${DOCKER_BUILDER_IMAGE_NAME} docker-compose -f docker/docker-compose.yml run \
 		--name "${DOCKER_CONTAINER_PREFIX}-test" \
-		--link "${DOCKER_CONTAINER_PREFIX}-db:postgres" \
-		-e UID=$(shell id -u) \
-		-e GID=$(shell id -g) \
-		-e TEST_DATABASE=postgresql://postgres:postgres@postgres/test_notification_api \
+		-v "`pwd`/test_results.xml:/var/project/test_results.xml" \
 		-e GIT_COMMIT=${GIT_COMMIT} \
 		-e BUILD_NUMBER=${BUILD_NUMBER} \
 		-e BUILD_URL=${BUILD_URL} \
@@ -216,23 +174,11 @@ test-with-docker: prepare-docker-build-image create-docker-test-db ## Run tests 
 		-e https_proxy="${HTTPS_PROXY}" \
 		-e HTTPS_PROXY="${HTTPS_PROXY}" \
 		-e NO_PROXY="${NO_PROXY}" \
-		-v "`pwd`:/var/project" \
-		${DOCKER_BUILDER_IMAGE_NAME} \
-		gosu hostuser make test
-
-.PHONY: test-with-docker
-create-docker-test-db: ## Start the test database in a Docker container
-	docker rm -f ${DOCKER_CONTAINER_PREFIX}-db 2> /dev/null || true
-	@docker run -d \
-		--name "${DOCKER_CONTAINER_PREFIX}-db" \
-		-e POSTGRES_PASSWORD="postgres" \
-		-e POSTGRES_DB=test_notification_api \
-		postgres:9.5
-	sleep 3
+		api make test
 
 # FIXME: CIRCLECI=1 is an ugly hack because the coveralls-python library sends the PR link only this way
 .PHONY: coverage-with-docker
-coverage-with-docker: prepare-docker-build-image ## Generates coverage report inside a Docker container
+coverage-with-docker: build-with-docker ## Generates coverage report inside a Docker container
 	@docker run -i${DOCKER_TTY} --rm \
 		--name "${DOCKER_CONTAINER_PREFIX}-coverage" \
 		-v "`pwd`:/var/project" \
