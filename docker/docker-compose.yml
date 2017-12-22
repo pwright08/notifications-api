@@ -1,0 +1,14 @@
+version: '3'
+services:
+  api:
+    image: ${DOCKER_BUILDER_IMAGE_NAME}
+    depends_on:
+      - postgres
+    environment:
+      - TEST_DATABASE=postgresql://postgres:postgres@postgres/test_notification_api
+
+  postgres:
+    image: "postgres:9.5"
+    environment:
+      - POSTGRES_DB=test_notification_api
+      - POSTGRES_PASSWORD=postgres
