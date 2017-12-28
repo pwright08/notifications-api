@@ -4,7 +4,6 @@ from datetime import (
     timedelta
 )
 
-from celery.signals import worker_process_shutdown
 from flask import current_app
 from notifications_utils.statsd_decorators import statsd
 from sqlalchemy import and_
@@ -73,11 +72,6 @@ from app.celery.service_callback_tasks import (
     create_encrypted_callback_data,
 )
 import pytz
-
-
-@worker_process_shutdown.connect
-def worker_process_shutdown(sender, signal, pid, exitcode):
-    current_app.logger.info('Scheduled tasks worker shutdown: PID: {} Exitcode: {}'.format(pid, exitcode))
 
 
 @notify_celery.task(name="remove_csv_files")

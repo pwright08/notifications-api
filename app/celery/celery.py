@@ -1,6 +1,13 @@
 import time
 
+from flask import current_app
 from celery import Celery, Task
+from celery.signals import worker_process_shutdown
+
+
+@worker_process_shutdown.connect
+def worker_process_shutdown(sender, signal, pid, exitcode, **kwargs):
+    current_app.logger.info('Celery worker shutdown: PID: {} Exitcode: {}'.format(pid, exitcode))
 
 
 def make_task(app):
