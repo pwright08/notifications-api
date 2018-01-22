@@ -102,6 +102,7 @@ def test_send_sms_raises_if_firetext_rejects(mocker, mock_firetext_client):
 def test_send_sms_raises_if_firetext_rejects_with_unexpected_data(mocker, mock_firetext_client):
     to = content = reference = 'foo'
     response_dict = {"something": "gone bad"}
+    error_logs = mocker.patch.object(mock_firetext_client.current_app.logger, 'error')
 
     with pytest.raises(SmsClientResponseException) as exc, requests_mock.Mocker() as request_mock:
         request_mock.post('https://www.firetext.co.uk/api/sendsms/json', json=response_dict, status_code=400)
@@ -110,7 +111,7 @@ def test_send_sms_raises_if_firetext_rejects_with_unexpected_data(mocker, mock_f
     assert exc.value.status_code == 400
     assert exc.value.text == '{"something": "gone bad"}'
     assert type(exc.value.exception) == HTTPError
-
+    assert 'response status_code 400' in error_logs.call_args[0][0]
 
 def test_send_sms_override_configured_shortcode_with_sender(mocker, mock_firetext_client):
     to = '+447234567890'

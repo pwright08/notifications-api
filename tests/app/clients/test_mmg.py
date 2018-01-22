@@ -75,6 +75,7 @@ def test_send_sms_raises_if_mmg_rejects(notify_api, mocker):
         'Error': 206,
         'Description': 'Some kind of error'
     }
+    error_logs = mocker.patch.object(mmg_client.current_app.logger, 'error')
 
     with pytest.raises(SmsClientResponseException) as exc, requests_mock.Mocker() as request_mock:
         request_mock.post('https://api.mmg.co.uk/json/api.php', json=response_dict, status_code=400)
@@ -84,6 +85,7 @@ def test_send_sms_raises_if_mmg_rejects(notify_api, mocker):
     assert '"Error": 206' in exc.value.text
     assert '"Description": "Some kind of error"' in exc.value.text
     assert type(exc.value.exception) == HTTPError
+    assert 'response status_code 400' in error_logs.call_args[0][0]
 
 
 def test_send_sms_override_configured_shortcode_with_sender(notify_api, mocker):

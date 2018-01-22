@@ -70,7 +70,7 @@ class MMGClient(SmsClient):
         self.mmg_url = current_app.config.get('MMG_URL')
 
     def record_outcome(self, success, response):
-        status_code = response.status_code if response else 503
+        status_code = response.status_code if response is not None else 503
         log_message = "API {} request {} on {} response status_code {}".format(
             "POST",
             "succeeded" if success else "failed",
