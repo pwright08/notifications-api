@@ -676,11 +676,6 @@ def test_should_set_international_phone_number_to_sent_status(
 @pytest.mark.parametrize('sms_sender, expected_sender, prefix_sms, expected_content', [
     ('foo', 'foo', False, 'bar'),
     ('foo', 'foo', True, 'Sample service: bar'),
-    # if 40604 is actually in DB then treat that as if entered manually
-    ('40604', '40604', False, 'bar'),
-    # 'testing' is the FROM_NUMBER during unit tests
-    ('testing', 'testing', True, 'Sample service: bar'),
-    ('testing', 'testing', False, 'bar'),
 ])
 def test_should_handle_sms_sender_and_prefix_message(
     mocker,
