@@ -280,10 +280,10 @@ def save_email(self,
 @notify_celery.task(bind=True, name="save-letter", max_retries=5, default_retry_delay=300)
 @statsd(namespace="tasks")
 def save_letter(
-    self,
-    service_id,
-    notification_id,
-    encrypted_notification,
+        self,
+        service_id,
+        notification_id,
+        encrypted_notification,
 ):
     notification = encryption.decrypt(encrypted_notification)
 
@@ -415,9 +415,12 @@ def update_letter_notifications_statuses(self, filename):
         raise DVLAException('DVLA response file: {} has an invalid format'.format(filename))
     else:
         temporary_failures = []
+        failed_references = []
         for update in notification_updates:
             check_billable_units(update)
-            update_letter_notification(filename, temporary_failures, update)
+            update_count = update_letter_notification(temporary_failures, update)
+            if not update_count:
+                failed_references.append(update.reference)
             sorted_letter_counts[update.cost_threshold] += 1
 
         try:
@@ -439,6 +442,11 @@ def update_letter_notifications_statuses(self, filename):
                 message = "DVLA response file: {filename} has failed letters with notification.reference {failures}" \
                     .format(filename=filename, failures=temporary_failures)
                 raise DVLAException(message)
+            if failed_references:
+                msg = "Update letter notification file {filename} failed: notification either not found " \
+                      "or already updated from delivered. For notification references {reference}"\
+                    .format(filename=filename, reference=failed_references)
+                current_app.logger.error(msg)
 
 
 def get_billing_date_in_bst_from_filename(filename):
@@ -463,7 +471,7 @@ def process_updates_from_file(response_file):
     return notification_updates
 
 
-def update_letter_notification(filename, temporary_failures, update):
+def update_letter_notification(temporary_failures, update):
     if update.status == DVLA_RESPONSE_STATUS_SENT:
         status = NOTIFICATION_DELIVERED
     else:
@@ -477,12 +485,7 @@ def update_letter_notification(filename, temporary_failures, update):
                      "updated_at": datetime.utcnow()
                      }
     )
-
-    if not updated_count:
-        msg = "Update letter notification file {filename} failed: notification either not found " \
-              "or already updated from delivered. Status {status} for notification reference {reference}".format(
-                  filename=filename, status=status, reference=update.reference)
-        current_app.logger.error(msg)
+    return updated_count
 
 
 def check_billable_units(notification_update):
@@ -568,7 +571,6 @@ def process_incomplete_jobs(job_ids):
 
 
 def process_incomplete_job(job_id):
-
     job = dao_get_job_by_id(job_id)
 
     last_notification_added = dao_get_last_notification_added_for_job_id(job_id)
