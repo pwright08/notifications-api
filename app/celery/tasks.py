@@ -506,7 +506,9 @@ def check_billable_units(notification_update):
 @statsd(namespace="tasks")
 def send_inbound_sms_to_service(self, inbound_sms_id, service_id):
     inbound_api = get_service_inbound_api_for_service(service_id=service_id)
-    if not inbound_api:
+
+    assert False
+    if not inbound_api or not inbound_api.url:
         # No API data has been set for this service
         return
 
